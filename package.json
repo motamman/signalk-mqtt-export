@@ -1,0 +1,49 @@
+{
+  "name": "signalk-mqtt-export",
+  "version": "0.5.0-alpha.1",
+  "description": "SignalK plugin to selectively export data to MQTT with webapp management interface (TypeScript)",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "start": "node dist/index.js",
+    "prepare": "npm run build",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "icon": "public/mqtt_export.png",
+  "keywords": [
+    "signalk-node-server-plugin",
+    "signalk-webapp",
+    "signalk-category-utility",
+    "signalk-category-ais",
+    "mqtt",
+    "export",
+    "marine-data",
+    "data-export",
+    "typescript"
+  ],
+  "author": "Maurice Tamman",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/motamman/signalk-mqtt-export.git"
+  },
+  "dependencies": {
+    "mqtt": "^4.3.7",
+    "fs-extra": "^11.1.0",
+    "express": "^4.18.2"
+  },
+  "devDependencies": {
+    "@types/node": "^20.5.0",
+    "@types/express": "^4.17.17",
+    "@types/fs-extra": "^11.0.1",
+    "typescript": "^5.1.6"
+  },
+  "signalk": {
+    "appSupport": "webapp",
+    "compatibility": ">=2.13.0",
+    "displayName": "SignalK MQTT Export Manager",
+    "appIcon": "mqtt_export.png"
+  }
+}
