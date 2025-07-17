@@ -342,7 +342,7 @@ export = function(app: SignalKApp): SignalKPlugin {
         id: 'all-navigation',
         name: 'All Navigation Data',
         context: 'vessels.self',
-        path: '*',
+        path: 'navigation*',
         source: '', // All sources
         enabled: true,
         period: 1000,
