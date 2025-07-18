@@ -1,7 +1,7 @@
 {
   "name": "signalk-mqtt-export",
   "version": "0.5.0-alpha.1",
-  "description": "SignalK plugin to selectively export data to MQTT with webapp management interface (TypeScript)",
+  "description": "SignalK plugin to selectively export data to MQTT with webapp management interface",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
