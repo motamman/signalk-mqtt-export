@@ -1,32 +1,27 @@
 import { Request, Response } from 'express';
 import { MqttClient } from 'mqtt';
+import {
+  ServerAPI,
+  Plugin,
+  Delta,
+  Update,
+  PathValue,
+  Context,
+  Path,
+  Timestamp,
+} from '@signalk/server-api';
 
-// SignalK App interface
-export interface SignalKApp {
-  debug: (message: string, ...args: any[]) => void;
-  subscriptionmanager: {
-    subscribe: (
-      subscription: SignalKSubscription,
-      unsubscribes: (() => void)[],
-      errorCallback: (error: any) => void,
-      deltaCallback: (delta: SignalKDelta) => void
-    ) => void;
-  };
-  savePluginOptions: (options: any, callback: (error?: Error) => void) => void;
-  getSelfPath: (path: string) => string;
-  selfId?: string;
-  getDataDirPath: () => string;
-}
+// Re-export SignalK types for convenience
+export type SignalKApp = ServerAPI;
+export type SignalKDelta = Delta;
+export type SignalKUpdate = Update;
+export type SignalKValue = PathValue;
+export type SignalKContext = Context;
+export type SignalKPath = Path;
+export type SignalKTimestamp = Timestamp;
 
-// SignalK Plugin interface
-export interface SignalKPlugin {
-  id: string;
-  name: string;
-  description: string;
-  schema: any;
-  start: (options: Partial<MQTTExportConfig>) => void;
-  stop: () => void;
-  registerWithRouter?: (router: any) => void;
+// Extended Plugin interface for our needs
+export interface SignalKPlugin extends Plugin {
   config?: MQTTExportConfig;
 }
 
@@ -61,49 +56,9 @@ export interface ExportRule {
 // Payload format options
 export type PayloadFormat = 'full' | 'value-only';
 
-// SignalK Delta structure
-export interface SignalKDelta {
-  context: string;
-  updates: SignalKUpdate[];
-}
+// SignalK types are now imported from @signalk/server-api
 
-// SignalK Update structure
-export interface SignalKUpdate {
-  source: SignalKSource;
-  timestamp: string;
-  values: SignalKValue[];
-  $source?: string;
-}
-
-// SignalK Source structure
-export interface SignalKSource {
-  label: string;
-  type?: string;
-  bus?: string;
-  src?: string;
-}
-
-// SignalK Value structure
-export interface SignalKValue {
-  path: string;
-  value: any;
-  timestamp?: string;
-}
-
-// SignalK Subscription structure
-export interface SignalKSubscription {
-  context: string;
-  subscribe: SignalKSubscriptionItem[];
-}
-
-// SignalK Subscription item
-export interface SignalKSubscriptionItem {
-  path: string;
-  period: number;
-  format?: string;
-  policy?: string;
-  minPeriod?: number;
-}
+// SignalK subscription types are now handled by @signalk/server-api
 
 // Plugin state
 export interface PluginState {
@@ -220,7 +175,12 @@ export interface PluginStats {
 }
 
 // MQTT connection state
-export type MqttConnectionState = 'disconnected' | 'connecting' | 'connected' | 'reconnecting' | 'error';
+export type MqttConnectionState =
+  | 'disconnected'
+  | 'connecting'
+  | 'connected'
+  | 'reconnecting'
+  | 'error';
 
 // SignalK subscription error
 export interface SubscriptionError {

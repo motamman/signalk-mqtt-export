@@ -18,28 +18,28 @@ import {
   ApiResponse,
   RuleUpdateRequest,
   MQTTClientOptions,
-  SignalKSubscription,
   PayloadFormat,
   DefaultRuleConfig,
   ValueChangeResult,
-  ContextGroup
+  ContextGroup,
 } from './types';
 
 // Global plugin state
 let appInstance: SignalKApp;
 
-export = function(app: SignalKApp): SignalKPlugin {
+export = function (app: SignalKApp): SignalKPlugin {
   // Store app instance for global access
   appInstance = app;
-  
+
   const plugin: SignalKPlugin = {
     id: 'signalk-mqtt-export',
     name: 'SignalK MQTT Export Manager',
-    description: 'Selectively export SignalK data to MQTT with webapp management interface',
+    description:
+      'Selectively export SignalK data to MQTT with webapp management interface',
     schema: {},
     start: () => {},
     stop: () => {},
-    registerWithRouter: undefined
+    registerWithRouter: undefined,
   };
 
   // Plugin state
@@ -49,12 +49,12 @@ export = function(app: SignalKApp): SignalKPlugin {
     activeSubscriptions: new Map<string, ExportRule[]>(),
     lastSentValues: new Map<string, any>(),
     currentConfig: undefined,
-    unsubscribes: []
+    unsubscribes: [],
   };
 
-  plugin.start = function(options: Partial<MQTTExportConfig>): void {
+  plugin.start = function (options: Partial<MQTTExportConfig>): void {
     app.debug('Starting SignalK MQTT Export Manager plugin');
-    
+
     const config: MQTTExportConfig = {
       mqttBroker: options?.mqttBroker || 'mqtt://localhost:1883',
       mqttClientId: options?.mqttClientId || 'signalk-mqtt-export',
@@ -62,7 +62,7 @@ export = function(app: SignalKApp): SignalKPlugin {
       mqttPassword: options?.mqttPassword || '',
       topicPrefix: options?.topicPrefix || '',
       enabled: options?.enabled !== false,
-      exportRules: options?.exportRules || getDefaultExportRules()
+      exportRules: options?.exportRules || getDefaultExportRules(),
     };
 
     state.currentConfig = config;
@@ -83,9 +83,9 @@ export = function(app: SignalKApp): SignalKPlugin {
     app.debug('SignalK MQTT Export Manager plugin started');
   };
 
-  plugin.stop = function(): void {
+  plugin.stop = function (): void {
     app.debug('Stopping SignalK MQTT Export Manager plugin');
-    
+
     // Disconnect MQTT client
     if (state.mqttClient) {
       state.mqttClient.end();
@@ -99,7 +99,7 @@ export = function(app: SignalKApp): SignalKPlugin {
       }
     });
     state.unsubscribes = [];
-    
+
     state.activeSubscriptions.clear();
     state.lastSentValues.clear();
     app.debug('SignalK MQTT Export Manager plugin stopped');
@@ -112,7 +112,7 @@ export = function(app: SignalKApp): SignalKPlugin {
         clientId: config.mqttClientId,
         clean: true,
         reconnectPeriod: 5000,
-        keepalive: 60
+        keepalive: 60,
       };
 
       if (config.mqttUsername && config.mqttPassword) {
@@ -137,9 +137,10 @@ export = function(app: SignalKApp): SignalKPlugin {
       state.mqttClient.on('reconnect', () => {
         app.debug('🔄 MQTT client reconnecting...');
       });
-
     } catch (error) {
-      app.debug(`Failed to initialize MQTT client: ${(error as Error).message}`);
+      app.debug(
+        `Failed to initialize MQTT client: ${(error as Error).message}`
+      );
     }
   }
 
@@ -156,33 +157,39 @@ export = function(app: SignalKApp): SignalKPlugin {
 
     // Group export rules by context for efficient subscriptions
     const contextGroups = new Map<string, ExportRule[]>();
-    state.exportRules.filter(rule => rule.enabled).forEach(rule => {
-      const context = rule.context || 'vessels.self';
-      if (!contextGroups.has(context)) {
-        contextGroups.set(context, []);
-      }
-      contextGroups.get(context)!.push(rule);
-    });
+    state.exportRules
+      .filter(rule => rule.enabled)
+      .forEach(rule => {
+        const context = rule.context || 'vessels.self';
+        if (!contextGroups.has(context)) {
+          contextGroups.set(context, []);
+        }
+        contextGroups.get(context)!.push(rule);
+      });
 
     // Create subscriptions for each context group
     contextGroups.forEach((rules, context) => {
-      const subscription: SignalKSubscription = {
-        context: context,
+      const subscription = {
+        context: context as any,
         subscribe: rules.map(rule => ({
-          path: rule.path,
-          period: rule.period || 1000
-        }))
+          path: rule.path as any,
+          policy: 'fixed' as const,
+          period: rule.period || 1000,
+          format: 'delta' as const,
+        })),
       };
 
-      app.debug(`Creating subscription for context ${context} with ${rules.length} paths`);
+      app.debug(
+        `Creating subscription for context ${context} with ${rules.length} paths`
+      );
 
       app.subscriptionmanager.subscribe(
         subscription,
         state.unsubscribes,
-        (subscriptionError) => {
-          app.debug(`Subscription error for ${context}:`, subscriptionError);
+        (subscriptionError: unknown) => {
+          app.debug(`Subscription error for ${context}: ${subscriptionError}`);
         },
-        (delta) => {
+        delta => {
           handleSignalKData(delta, rules);
         }
       );
@@ -190,23 +197,28 @@ export = function(app: SignalKApp): SignalKPlugin {
       state.activeSubscriptions.set(context, rules);
     });
 
-    app.debug(`Active subscriptions: ${state.activeSubscriptions.size} contexts, ${state.exportRules.filter(r => r.enabled).length} total rules`);
+    app.debug(
+      `Active subscriptions: ${state.activeSubscriptions.size} contexts, ${state.exportRules.filter(r => r.enabled).length} total rules`
+    );
   }
 
   // Handle incoming SignalK data
-  function handleSignalKData(delta: SignalKDelta, contextRules: ExportRule[]): void {
+  function handleSignalKData(
+    delta: SignalKDelta,
+    contextRules: ExportRule[]
+  ): void {
     if (!delta.updates || !state.mqttClient || !state.mqttClient.connected) {
       return;
     }
 
     delta.updates.forEach(update => {
-      if (!update.values) return;
+      if (!(update as any).values) return;
 
-      update.values.forEach(valueUpdate => {
+      (update as any).values.forEach((valueUpdate: any) => {
         // Find matching export rule
         const rule = contextRules.find(r => {
           if (!r.enabled) return false;
-          
+
           // Check path match (support wildcards)
           let pathMatch = false;
           if (r.path === '*') {
@@ -218,26 +230,31 @@ export = function(app: SignalKApp): SignalKPlugin {
             const prefix = r.path.slice(0, -1);
             pathMatch = valueUpdate.path.startsWith(prefix);
           }
-          
+
           if (!pathMatch) {
             return false;
           }
-          
+
           // Check source match
-          const sourceMatch = !r.source || !r.source.trim() || r.source === (update.$source || update.source?.label);
+          const sourceMatch =
+            !r.source ||
+            !r.source.trim() ||
+            r.source === (update.$source || update.source?.label);
           if (!sourceMatch) return false;
-          
+
           // Check MMSI exclusion list
           if (r.excludeMMSI && r.excludeMMSI.trim() && delta.context) {
-            const excludedMMSIs = r.excludeMMSI.split(',').map(mmsi => mmsi.trim());
-            const contextHasExcludedMMSI = excludedMMSIs.some(mmsi => 
-              delta.context.includes(mmsi)
+            const excludedMMSIs = r.excludeMMSI
+              .split(',')
+              .map(mmsi => mmsi.trim());
+            const contextHasExcludedMMSI = excludedMMSIs.some(mmsi =>
+              delta.context?.includes(mmsi)
             );
             if (contextHasExcludedMMSI) {
               return false;
             }
           }
-          
+
           return true;
         });
 
@@ -249,7 +266,12 @@ export = function(app: SignalKApp): SignalKPlugin {
   }
 
   // Publish data to MQTT
-  function publishToMQTT(delta: SignalKDelta, update: SignalKUpdate, valueUpdate: SignalKValue, rule: ExportRule): void {
+  function publishToMQTT(
+    delta: SignalKDelta,
+    update: SignalKUpdate,
+    valueUpdate: SignalKValue,
+    rule: ExportRule
+  ): void {
     try {
       const context = delta.context || 'vessels.self';
       const path = valueUpdate.path;
@@ -268,7 +290,7 @@ export = function(app: SignalKApp): SignalKPlugin {
       if (state.currentConfig?.topicPrefix) {
         topic = `${state.currentConfig.topicPrefix}/`;
       }
-      
+
       if (rule.topicTemplate) {
         // Use custom topic template
         topic += rule.topicTemplate
@@ -283,55 +305,70 @@ export = function(app: SignalKApp): SignalKPlugin {
       // Build payload
       let payload: string;
       if (rule.payloadFormat === 'value-only') {
-        payload = typeof value === 'object' ? JSON.stringify(value) : String(value);
+        payload =
+          typeof value === 'object' ? JSON.stringify(value) : String(value);
       } else {
         // Default: use original SignalK delta structure (preserves all source info)
         payload = JSON.stringify(delta);
       }
 
       // Publish to MQTT
-      state.mqttClient!.publish(topic, payload, { qos: (rule.qos || 0) as 0 | 1 | 2, retain: rule.retain || false }, (err) => {
-        if (err) {
-          app.debug(`MQTT publish error: ${err.message}`);
-        } else {
-          app.debug(`✅ Published to MQTT: ${topic} = ${payload.substring(0, 100)}${payload.length > 100 ? '...' : ''}`);
+      state.mqttClient!.publish(
+        topic,
+        payload,
+        { qos: (rule.qos || 0) as 0 | 1 | 2, retain: rule.retain || false },
+        err => {
+          if (err) {
+            app.debug(`MQTT publish error: ${err.message}`);
+          } else {
+            app.debug(
+              `✅ Published to MQTT: ${topic} = ${payload.substring(0, 100)}${payload.length > 100 ? '...' : ''}`
+            );
+          }
         }
-      });
-
+      );
     } catch (error) {
       app.debug(`Error publishing to MQTT: ${(error as Error).message}`);
     }
   }
 
   // Check if value has changed
-  function checkValueChange(context: string, path: string, value: any): ValueChangeResult {
+  function checkValueChange(
+    context: string,
+    path: string,
+    value: any
+  ): ValueChangeResult {
     const valueKey = `${context}:${path}`;
     const lastValue = state.lastSentValues.get(valueKey);
-    
+
     // Compare values (handle objects and primitives)
-    const currentValueString = typeof value === 'object' ? JSON.stringify(value) : String(value);
-    
+    const currentValueString =
+      typeof value === 'object' ? JSON.stringify(value) : String(value);
+
     // If we have a previous value, compare it
     if (lastValue !== undefined) {
-      const lastValueString = typeof lastValue === 'object' ? JSON.stringify(lastValue) : String(lastValue);
-      
+      const lastValueString =
+        typeof lastValue === 'object'
+          ? JSON.stringify(lastValue)
+          : String(lastValue);
+
       if (currentValueString === lastValueString) {
         // Value hasn't changed
         return {
           hasChanged: false,
           currentValue: value,
-          previousValue: lastValue
+          previousValue: lastValue,
         };
       }
     }
-    
+
     // Store new value for next comparison (either first time or value changed)
     state.lastSentValues.set(valueKey, value);
-    
+
     return {
       hasChanged: true,
       currentValue: value,
-      previousValue: lastValue
+      previousValue: lastValue,
     };
   }
 
@@ -349,7 +386,7 @@ export = function(app: SignalKApp): SignalKPlugin {
         qos: 0,
         retain: false,
         payloadFormat: 'full',
-        sendOnChange: true
+        sendOnChange: true,
       },
       {
         id: 'derived-data',
@@ -362,7 +399,7 @@ export = function(app: SignalKApp): SignalKPlugin {
         qos: 0,
         retain: false,
         payloadFormat: 'full',
-        sendOnChange: true
+        sendOnChange: true,
       },
       {
         id: 'pypilot',
@@ -375,7 +412,7 @@ export = function(app: SignalKApp): SignalKPlugin {
         qos: 0,
         retain: false,
         payloadFormat: 'full',
-        sendOnChange: true
+        sendOnChange: true,
       },
       {
         id: 'anchoralarm',
@@ -388,7 +425,7 @@ export = function(app: SignalKApp): SignalKPlugin {
         qos: 0,
         retain: false,
         payloadFormat: 'full',
-        sendOnChange: true
+        sendOnChange: true,
       },
       {
         id: 'all-vessels',
@@ -402,7 +439,7 @@ export = function(app: SignalKApp): SignalKPlugin {
         qos: 0,
         retain: false,
         payloadFormat: 'full',
-        sendOnChange: true
+        sendOnChange: true,
       },
       {
         id: 'ais-vessels',
@@ -416,95 +453,128 @@ export = function(app: SignalKApp): SignalKPlugin {
         qos: 0,
         retain: false,
         payloadFormat: 'full',
-        sendOnChange: true
-      }
+        sendOnChange: true,
+      },
     ];
   }
 
   // Plugin webapp routes
-  plugin.registerWithRouter = function(router: Router): void {
+  plugin.registerWithRouter = function (router: Router): void {
     const express = require('express');
-    
+
     app.debug('registerWithRouter called for MQTT export manager');
-    
+
     // API Routes
-    
+
     // Get current export rules
-    router.get('/api/rules', (_: TypedRequest, res: TypedResponse<RulesApiResponse>) => {
-      res.json({
-        success: true,
-        rules: state.exportRules,
-        activeSubscriptions: state.activeSubscriptions.size,
-        mqttConnected: state.mqttClient ? state.mqttClient.connected : false
-      });
-    });
+    router.get(
+      '/api/rules',
+      (_: TypedRequest, res: TypedResponse<RulesApiResponse>) => {
+        res.json({
+          success: true,
+          rules: state.exportRules,
+          activeSubscriptions: state.activeSubscriptions.size,
+          mqttConnected: state.mqttClient ? state.mqttClient.connected : false,
+        });
+      }
+    );
 
     // Update export rules
-    router.post('/api/rules', (req: TypedRequest<RuleUpdateRequest>, res: TypedResponse<ApiResponse>) => {
-      try {
-        const newRules = req.body.rules;
-        if (!Array.isArray(newRules)) {
-          return res.status(400).json({ success: false, error: 'Rules must be an array' });
-        }
-
-        state.exportRules = newRules;
-        if (plugin.config) {
-          plugin.config.exportRules = newRules;
-        }
-        
-        // Save configuration to persistent storage
-        app.savePluginOptions(plugin.config, (err) => {
-          if (err) {
-            app.debug('Error saving plugin configuration:', err);
-            return res.status(500).json({ success: false, error: 'Failed to save configuration' });
+    router.post(
+      '/api/rules',
+      (
+        req: TypedRequest<RuleUpdateRequest>,
+        res: TypedResponse<ApiResponse>
+      ) => {
+        try {
+          const newRules = req.body.rules;
+          if (!Array.isArray(newRules)) {
+            return res
+              .status(400)
+              .json({ success: false, error: 'Rules must be an array' });
           }
-          
-          // Update subscriptions with new rules
-          updateSubscriptions();
-          
-          res.json({ success: true, message: 'Export rules updated and saved' });
-        });
-      } catch (error) {
-        res.status(500).json({ success: false, error: (error as Error).message });
+
+          state.exportRules = newRules;
+          if (plugin.config) {
+            plugin.config.exportRules = newRules;
+          }
+
+          // Save configuration to persistent storage
+          app.savePluginOptions(plugin.config || {}, (err: any) => {
+            if (err) {
+              app.debug(`Error saving plugin configuration: ${err.message}`);
+              return res.status(500).json({
+                success: false,
+                error: 'Failed to save configuration',
+              });
+            }
+
+            // Update subscriptions with new rules
+            updateSubscriptions();
+
+            res.json({
+              success: true,
+              message: 'Export rules updated and saved',
+            });
+          });
+        } catch (error) {
+          res
+            .status(500)
+            .json({ success: false, error: (error as Error).message });
+        }
       }
-    });
+    );
 
     // Get MQTT connection status
-    router.get('/api/mqtt-status', (_: TypedRequest, res: TypedResponse<MQTTStatusApiResponse>) => {
-      res.json({
-        success: true,
-        connected: state.mqttClient ? state.mqttClient.connected : false,
-        broker: state.currentConfig?.mqttBroker,
-        clientId: state.currentConfig?.mqttClientId
-      });
-    });
+    router.get(
+      '/api/mqtt-status',
+      (_: TypedRequest, res: TypedResponse<MQTTStatusApiResponse>) => {
+        res.json({
+          success: true,
+          connected: state.mqttClient ? state.mqttClient.connected : false,
+          broker: state.currentConfig?.mqttBroker,
+          clientId: state.currentConfig?.mqttClientId,
+        });
+      }
+    );
 
     // Test MQTT connection
-    router.post('/api/test-mqtt', (_: TypedRequest, res: TypedResponse<ApiResponse>) => {
-      try {
-        if (!state.mqttClient || !state.mqttClient.connected) {
-          return res.status(503).json({ success: false, error: 'MQTT not connected' });
+    router.post(
+      '/api/test-mqtt',
+      (_: TypedRequest, res: TypedResponse<ApiResponse>) => {
+        try {
+          if (!state.mqttClient || !state.mqttClient.connected) {
+            return res
+              .status(503)
+              .json({ success: false, error: 'MQTT not connected' });
+          }
+
+          const testTopic = `${state.currentConfig?.topicPrefix || 'test'}/signalk-mqtt-export-test`;
+          const testPayload = JSON.stringify({
+            test: true,
+            timestamp: new Date().toISOString(),
+            message: 'Test message from SignalK MQTT Export Manager',
+          });
+
+          state.mqttClient.publish(testTopic, testPayload, { qos: 0 });
+          res.json({
+            success: true,
+            message: 'Test message published',
+            topic: testTopic,
+          });
+        } catch (error) {
+          res
+            .status(500)
+            .json({ success: false, error: (error as Error).message });
         }
-
-        const testTopic = `${state.currentConfig?.topicPrefix || 'test'}/signalk-mqtt-export-test`;
-        const testPayload = JSON.stringify({
-          test: true,
-          timestamp: new Date().toISOString(),
-          message: 'Test message from SignalK MQTT Export Manager'
-        });
-
-        state.mqttClient.publish(testTopic, testPayload, { qos: 0 });
-        res.json({ success: true, message: 'Test message published', topic: testTopic });
-      } catch (error) {
-        res.status(500).json({ success: false, error: (error as Error).message });
       }
-    });
+    );
 
     // Serve static files
     const publicPath = path.join(__dirname, '../public');
     if (fs.existsSync(publicPath)) {
       router.use(express.static(publicPath));
-      app.debug('Static files served from:', publicPath);
+      app.debug(`Static files served from: ${publicPath}`);
     }
 
     app.debug('MQTT Export Manager web routes registered');
@@ -518,39 +588,40 @@ export = function(app: SignalKApp): SignalKPlugin {
         type: 'boolean',
         title: 'Enable MQTT Export',
         description: 'Enable/disable the MQTT export functionality',
-        default: true
+        default: true,
       },
       mqttBroker: {
         type: 'string',
         title: 'MQTT Broker URL',
-        description: 'MQTT broker connection string (e.g., mqtt://localhost:1883)',
-        default: 'mqtt://localhost:1883'
+        description:
+          'MQTT broker connection string (e.g., mqtt://localhost:1883)',
+        default: 'mqtt://localhost:1883',
       },
       mqttClientId: {
         type: 'string',
         title: 'MQTT Client ID',
         description: 'Unique client identifier for MQTT connection',
-        default: 'signalk-mqtt-export'
+        default: 'signalk-mqtt-export',
       },
       mqttUsername: {
         type: 'string',
         title: 'MQTT Username',
         description: 'Username for MQTT authentication (optional)',
-        default: ''
+        default: '',
       },
       mqttPassword: {
         type: 'string',
         title: 'MQTT Password',
         description: 'Password for MQTT authentication (optional)',
-        default: ''
+        default: '',
       },
       topicPrefix: {
         type: 'string',
         title: 'Topic Prefix',
         description: 'Optional prefix for all MQTT topics',
-        default: ''
+        default: '',
       },
-    }
+    },
   };
 
   return plugin;
