@@ -1,36 +1,61 @@
 # SignalK MQTT Export Manager
 
-A TypeScript-based SignalK plugin for selectively exporting SignalK data to MQTT with a comprehensive webapp management interface.
+**Version 0.5.0-beta.1**
+
+A comprehensive SignalK plugin and webapp provides a web-based interface for managing selective export of SignalK data to MQTT brokers. This plugin serves as the inverse of the MQTT Import plugin, allowing you to export data from SignalK to MQTT topics.
+
+***THIS REQUIRES A SEPARATELY INSTALLED MQTT BROKER***
+
+Both have been tested with a local and remote Mosquitto broker. I run a local broker which bridges to the remote broker when I have connectivity on the boat. This assumes you want to export SignalK deltas to MQTT for external processing or bridging to other systems.
 
 ## Features
 
-- **Selective Export**: Choose exactly which SignalK data to export to MQTT
-- **Flexible Rules**: Configure export rules with context, path, and source filtering
-- **Wildcard Support**: Use wildcards for path matching (e.g., `navigation.*`)
-- **Source Filtering**: Filter by specific SignalK data sources
-- **MMSI Exclusion**: Exclude specific vessels by MMSI
-- **Change Detection**: Only send on value changes to reduce MQTT traffic
-- **Topic Templates**: Customize MQTT topic structure
-- **Payload Formats**: Choose between full SignalK structure or value-only
-- **QoS & Retain**: Full MQTT QoS and retain message support
-- **Web Interface**: Comprehensive webapp for managing export rules
-- **TypeScript**: Fully typed for reliability and maintainability
+- **🌐 Web Interface**: Easy-to-use webapp for managing export rules
+- **📋 Rule Management**: Create, edit, enable/disable export rules
+- **🎯 Selective Export**: Choose exactly which SignalK data to export to MQTT
+- **📊 Real-time Status**: Monitor MQTT connection and message statistics
+- **🏷️ Flexible Rules**: Configure export rules with context, path, and source filtering
+- **🔍 Wildcard Support**: Use wildcards for path matching (e.g., `navigation.*`)
+- **📦 Source Filtering**: Filter by specific SignalK data sources
+- **🚫 MMSI Exclusion**: Exclude specific vessels by MMSI
+- **🔄 Change Detection**: Only send on value changes to reduce MQTT traffic
+- **🏷️ Topic Templates**: Customize MQTT topic structure
+- **📤 Payload Formats**: Choose between full SignalK structure or value-only
+- **⚡ QoS & Retain**: Full MQTT QoS and retain message support
+- **🔧 TypeScript**: Fully typed for reliability and maintainability
 
 ## Installation
 
-Install directly from GitHub:
-
+### Method: NPM Installation
 ```bash
-npm install motamman/signalk-mqtt-export
+npm install signalk-mqtt-export
+sudo systemctl restart signalk
 ```
 
-Or clone and install locally:
+### Method: NPM Installation from GitHub repo
+```bash
+cd ~/.signalk/node_modules
+npm install motamman/signalk-mqtt-export
+sudo systemctl restart signalk
+```
+
+## Development
+
+### Building from Source
 
 ```bash
+# Clone the repository
 git clone https://github.com/motamman/signalk-mqtt-export.git
 cd signalk-mqtt-export
+
+# Install dependencies
 npm install
+
+# Build TypeScript
 npm run build
+
+# Development mode (watch for changes)
+npm run dev
 ```
 
 ## Configuration
@@ -86,7 +111,7 @@ Custom topic templates support variables:
 ## Web Interface
 
 Access the management interface at:
-`http://your-signalk-server/plugins/signalk-mqtt-export/`
+- **http://your-signalk-server:3000/plugins/signalk-mqtt-export/**
 
 Features:
 - Real-time status monitoring
@@ -103,22 +128,17 @@ Features:
 npm run build
 ```
 
-### Development Mode
-
-```bash
-npm run dev
-```
-
 ### Project Structure
 
 ```
-src/
-├── index.ts      # Main plugin logic
-└── types.ts      # TypeScript interfaces
-public/
-├── index.html    # Web interface
-└── mqtt_export.png
-dist/             # Compiled JavaScript (generated)
+signalk-mqtt-export/
+├── src/
+│   ├── index.ts        # Main plugin file (TypeScript)
+│   └── types.ts        # TypeScript type definitions
+├── dist/               # Compiled JavaScript output
+├── public/             # Web interface files
+├── package.json        # Dependencies and scripts
+└── tsconfig.json       # TypeScript configuration
 ```
 
 ## API Endpoints
@@ -128,14 +148,27 @@ dist/             # Compiled JavaScript (generated)
 - `GET /api/mqtt-status` - Get MQTT connection status
 - `POST /api/test-mqtt` - Test MQTT connection
 
-## TypeScript Support
+## Integration with Import Plugin
 
-This plugin is written in TypeScript with comprehensive type definitions for:
-- SignalK data structures
-- MQTT client interfaces
-- Export rule configurations
-- API request/response types
-- Plugin state management
+This plugin is designed to work seamlessly with the SignalK MQTT Import plugin:
+
+1. **Export Plugin**: Publishes SignalK data to MQTT topics
+2. **Import Plugin**: Subscribes to MQTT topics and imports data back to SignalK
+
+This allows you to:
+- Bridge SignalK instances across networks
+- Share data between different vessels
+- Implement data processing pipelines
+- Create backup/restore mechanisms
+
+## TypeScript Features
+
+### Key Interfaces
+- `ExportRule`: Export rule configuration
+- `MQTTExportConfig`: Plugin configuration
+- `SignalKDelta`: SignalK delta message structure
+- `ApiResponse<T>`: Generic API response typing
+- `PluginState`: Internal plugin state management
 
 ## License
 
@@ -148,6 +181,39 @@ MIT
 3. Make your changes
 4. Add tests if applicable
 5. Submit a pull request
+
+## Troubleshooting
+
+### Common Issues
+
+1. **MQTT Connection Failed**
+   - Check MQTT broker URL and credentials
+   - Ensure network connectivity
+   - Verify firewall settings
+
+2. **No Data Being Exported**
+   - Check if export rules are enabled
+   - Verify SignalK paths match your data
+   - Review MQTT topic patterns
+   - Check SignalK debug logs
+
+3. **TypeScript Compilation Issues**
+   - Ensure all dependencies are installed: `npm install`
+   - Check TypeScript version compatibility
+   - Review tsconfig.json settings
+
+4. **High MQTT Traffic**
+   - Enable "Send on Change" option
+   - Adjust update periods for rules
+   - Use more specific path filters
+
+### Debug Mode
+Enable debug logging in SignalK admin to see detailed export processing:
+```
+[DEBUG] 📤 Exporting data on topic: vessels/self/navigation/position
+[DEBUG] ✅ Rule matched: "Navigation Data" for path: navigation.position
+[DEBUG] 📡 Successfully published to MQTT: vessels/self/navigation/position
+```
 
 ## Support
 
