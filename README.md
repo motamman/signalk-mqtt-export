@@ -22,7 +22,6 @@ Both have been tested with a local and remote Mosquitto broker. I run a local br
 - **🏷️ Topic Templates**: Customize MQTT topic structure
 - **📤 Payload Formats**: Choose between full SignalK structure or value-only
 - **⚡ QoS & Retain**: Full MQTT QoS and retain message support
-- **🔧 TypeScript**: Fully typed for reliability and maintainability
 
 ## Installation
 
@@ -60,14 +59,19 @@ npm run dev
 
 ## Configuration
 
-The plugin can be configured through the SignalK web interface or by editing the configuration directly.
+### Plugin Settings
 
-### Basic MQTT Settings
+Navigate to **SignalK Admin → Server → Plugin Config → SignalK MQTT Export Manager** for basic MQTT connection settings:
 
-- **MQTT Broker**: Connection string (e.g., `mqtt://localhost:1883`)
+- **Enable MQTT Export**: Master enable/disable switch
+- **MQTT Broker URL**: Connection string (e.g., `mqtt://localhost:1883`)
 - **Client ID**: Unique identifier for the MQTT connection
 - **Username/Password**: Optional authentication credentials
-- **Topic Prefix**: Optional prefix for all published topics
+- **Topic Prefix**: Optional prefix for all MQTT topics
+
+### Export Rules Management
+
+**All export rules are managed through the web interface only.** This eliminates configuration conflicts and provides a better user experience.
 
 ### Export Rules
 
