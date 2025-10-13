@@ -1,8 +1,8 @@
 # SignalK MQTT Export Manager
 
-**Version 0.5.0-beta.1**
+**Version 0.5.0-beta.2**
 
-A comprehensive SignalK plugin and webapp provides a web-based interface for managing selective export of SignalK data to MQTT brokers. This plugin serves as the inverse of the MQTT Import plugin, allowing you to export data from SignalK to MQTT topics.
+A comprehensive SignalK plugin and webapp that provides a web-based interface for managing selective export of SignalK data to MQTT brokers. This plugin serves as the inverse of the MQTT Import plugin, allowing you to export data from SignalK to MQTT topics with flexible source transformation.
 
 ***THIS REQUIRES A SEPARATELY INSTALLED MQTT BROKER***
 
@@ -10,18 +10,20 @@ Both have been tested with a local and remote Mosquitto broker. I run a local br
 
 ## Features
 
-- **🌐 Web Interface**: Easy-to-use webapp for managing export rules
-- **📋 Rule Management**: Create, edit, enable/disable export rules
+- **🌐 Web Interface**: Easy-to-use webapp for managing export rules with live updates
+- **📋 Rule Management**: Create, edit, enable/disable export rules with auto-save
 - **🎯 Selective Export**: Choose exactly which SignalK data to export to MQTT
 - **📊 Real-time Status**: Monitor MQTT connection and message statistics
 - **🏷️ Flexible Rules**: Configure export rules with context, path, and source filtering
 - **🔍 Wildcard Support**: Use wildcards for path matching (e.g., `navigation.*`)
-- **📦 Source Filtering**: Filter by specific SignalK data sources
+- **📦 Source Filtering**: Filter incoming data by specific SignalK sources
+- **🏷️ Source Transformation**: Optionally replace the $source field in exported data
 - **🚫 MMSI Exclusion**: Exclude specific vessels by MMSI
 - **🔄 Change Detection**: Only send on value changes to reduce MQTT traffic
-- **🏷️ Topic Templates**: Customize MQTT topic structure
+- **📍 Topic Templates**: Customize MQTT topic structure with variables
 - **📤 Payload Formats**: Choose between full SignalK structure or value-only
 - **⚡ QoS & Retain**: Full MQTT QoS and retain message support
+- **🔁 Bidirectional Sync**: Works seamlessly with MQTT Import plugin
 
 ## Installation
 
@@ -78,14 +80,22 @@ Navigate to **SignalK Admin → Server → Plugin Config → SignalK MQTT Export
 Each export rule defines:
 
 - **Context**: SignalK context to subscribe to (e.g., `vessels.self`, `vessels.*`)
-- **Path**: SignalK path pattern (supports wildcards like `navigation.*`)
-- **Source**: Optional source filter (e.g., `pypilot`, `derived-data`)
-- **Period**: Update frequency in milliseconds
+- **Path**: SignalK path pattern (supports wildcards like `navigation.*`, `*`)
+- **Source Filter**: Optional filter for incoming data source (e.g., `pypilot`, `derived-data`)
+  - Leave empty to accept data from all sources
+  - Specify a source to only export data from that source
+- **Source Label**: Optional custom $source for exported data
+  - Leave empty to preserve the original source
+  - Provide a label (e.g., `mqtt-export`, `remote-boat`) to replace the source field
+  - Useful for identifying re-exported data when using with MQTT Import
+- **Period**: Update frequency in milliseconds (100-60000ms)
 - **QoS**: MQTT Quality of Service (0, 1, or 2)
-- **Retain**: Whether to set MQTT retain flag
-- **Payload Format**: `full` (complete SignalK delta) or `value-only`
-- **Send on Change**: Only publish when values change
-- **Topic Template**: Custom MQTT topic format
+- **Retain**: Whether to set MQTT retain flag on messages
+- **Payload Format**:
+  - `full` - Complete SignalK delta structure (preserves or replaces source)
+  - `value-only` - Just the raw value
+- **Send on Change**: Only publish when values change to reduce traffic
+- **Topic Template**: Custom MQTT topic format using `{context}` and `{path}` variables
 - **Exclude MMSI**: Comma-separated list of MMSI numbers to exclude
 
 ## Default Export Rules
@@ -101,28 +111,56 @@ The plugin comes with sensible defaults:
 
 ## MQTT Topic Structure
 
-Default topic format: `{prefix}/{context}/{path}`
+### Default Format
+Without a topic template: `{prefix}/{context}/{path}`
 
 Examples:
 - `vessels/self/navigation/position`
 - `vessels/urn:mrn:imo:mmsi:123456789/navigation/position`
 
-Custom topic templates support variables:
-- `{context}` - SignalK context
-- `{path}` - SignalK path
-- `marine/{context}/{path}` - Custom prefix
+### Custom Topic Templates
+Topic templates support variables:
+- `{context}` - Replaced with SignalK context (e.g., `vessels.self`)
+- `{path}` - Replaced with SignalK path (e.g., `navigation.position`)
+- All dots (`.`) are automatically converted to slashes (`/`)
+
+**Template Examples:**
+
+| Template | SignalK Data | Result Topic |
+|----------|-------------|--------------|
+| `marine/{context}/{path}` | `vessels.self` / `navigation.position` | `marine/vessels/self/navigation/position` |
+| `boat/{path}` | `vessels.self` / `electrical.batteries.0.voltage` | `boat/electrical/batteries/0/voltage` |
+| `{context}/data/{path}` | `vessels.self` / `navigation.speedOverGround` | `vessels/self/data/navigation/speedOverGround` |
 
 ## Web Interface
 
 Access the management interface at:
 - **http://your-signalk-server:3000/plugins/signalk-mqtt-export/**
 
-Features:
-- Real-time status monitoring
-- Visual rule management
-- MQTT connection testing
-- Activity logging
-- Rule import/export
+### Interface Features:
+
+- **📊 Status Overview** - Real-time MQTT connection status and rule statistics
+- **📤 Export Rules Management** - Add, edit, delete, and toggle rules
+- **⚡ Auto-Save** - Changes are automatically saved (no manual save button)
+- **🔔 Toast Notifications** - Visual feedback for all operations
+- **🗂️ Collapsible Sections** - Compact, organized interface
+- **📝 Activity Log** - Real-time logging of export operations
+- **🧪 MQTT Testing** - Test MQTT connection with a single click
+- **🔄 Auto-Refresh** - Status updates every 10 seconds
+
+### Creating Export Rules:
+
+1. Click **"➕ Add Rule"** button
+2. Configure rule parameters:
+   - **Name**: Descriptive name for the rule
+   - **Context**: Select vessel context
+   - **Path**: Enter SignalK path (supports wildcards)
+   - **Source Filter**: (Optional) Filter by incoming source
+   - **Source Label**: (Optional) Custom $source for exports
+   - **Payload Format**: Choose full or value-only
+   - **Topic Template**: (Optional) Custom topic structure
+3. Click **"Save Rule"** - automatically saved to server
+4. Toggle rules on/off with the switch in the rules table
 
 ## Development
 
@@ -154,16 +192,39 @@ signalk-mqtt-export/
 
 ## Integration with Import Plugin
 
-This plugin is designed to work seamlessly with the SignalK MQTT Import plugin:
+This plugin is designed to work seamlessly with the SignalK MQTT Import plugin for bidirectional data flow:
+
+### Export → MQTT → Import Flow
 
 1. **Export Plugin**: Publishes SignalK data to MQTT topics
-2. **Import Plugin**: Subscribes to MQTT topics and imports data back to SignalK
+2. **MQTT Broker**: Routes messages between systems
+3. **Import Plugin**: Subscribes to MQTT topics and imports data back to SignalK
 
-This allows you to:
-- Bridge SignalK instances across networks
-- Share data between different vessels
-- Implement data processing pipelines
-- Create backup/restore mechanisms
+### Source Label Feature
+
+The **Source Label** field enables proper source identification when re-importing data:
+
+**Example Scenario:**
+```
+Boat A (Export):
+  - Receives data from source: "pypilot"
+  - Exports with Source Label: "boat-a-autopilot"
+  - MQTT Topic: vessels/self/navigation/courseOverGroundTrue
+
+Boat B (Import):
+  - Imports from MQTT Topic: vessels/urn:mrn:signalk:uuid:boat-a/navigation/courseOverGroundTrue
+  - SignalK sees source: "boat-a-autopilot" (not "pypilot")
+  - Clear identification of data origin
+```
+
+### Use Cases
+
+- **Bridge SignalK instances across networks** - Share data between remote locations
+- **Multi-vessel data sharing** - Exchange navigation data between boats
+- **Data processing pipelines** - Export to MQTT, process externally, re-import
+- **Remote monitoring** - Export to cloud MQTT broker for monitoring
+- **Backup/restore mechanisms** - Create data archives via MQTT
+- **Source tracking** - Maintain clear data provenance when bridging systems
 
 ## TypeScript Features
 
