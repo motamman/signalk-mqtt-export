@@ -43,6 +43,7 @@ export interface ExportRule {
   context: string;
   path: string;
   source?: string;
+  sourceLabel?: string;
   enabled: boolean;
   period: number;
   qos: number;
@@ -65,7 +66,7 @@ export interface PluginState {
   mqttClient: MqttClient | null;
   exportRules: ExportRule[];
   activeSubscriptions: Map<string, ExportRule[]>;
-  lastSentValues: Map<string, any>;
+  lastSentValues: Map<string, unknown>;
   currentConfig?: MQTTExportConfig;
   unsubscribes: (() => void)[];
 }
@@ -81,11 +82,11 @@ export interface MQTTClientOptions {
 }
 
 // API Request/Response types
-export interface TypedRequest<T = any> extends Request {
+export interface TypedRequest<T = unknown> extends Request {
   body: T;
 }
 
-export interface TypedResponse<T = any> extends Response {
+export interface TypedResponse<T = unknown> extends Response {
   json: (obj: T) => this;
 }
 
@@ -147,8 +148,8 @@ export interface ContextGroup {
 // Value change detection
 export interface ValueChangeResult {
   hasChanged: boolean;
-  currentValue: any;
-  previousValue?: any;
+  currentValue: unknown;
+  previousValue?: unknown;
 }
 
 // MQTT topic template variables

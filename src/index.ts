@@ -1,7 +1,7 @@
 import * as fs from 'fs-extra';
 import * as path from 'path';
 import { Router } from 'express';
-import { connect, MqttClient } from 'mqtt';
+import { connect } from 'mqtt';
 import {
   SignalKApp,
   SignalKPlugin,
@@ -10,6 +10,9 @@ import {
   SignalKDelta,
   SignalKUpdate,
   SignalKValue,
+  SignalKContext,
+  SignalKPath,
+  SignalKTimestamp,
   PluginState,
   TypedRequest,
   TypedResponse,
@@ -18,19 +21,10 @@ import {
   ApiResponse,
   RuleUpdateRequest,
   MQTTClientOptions,
-  PayloadFormat,
-  DefaultRuleConfig,
   ValueChangeResult,
-  ContextGroup,
 } from './types';
 
-// Global plugin state
-let appInstance: SignalKApp;
-
 export = function (app: SignalKApp): SignalKPlugin {
-  // Store app instance for global access
-  appInstance = app;
-
   const plugin: SignalKPlugin = {
     id: 'signalk-mqtt-export',
     name: 'SignalK MQTT Export Manager',
@@ -47,7 +41,7 @@ export = function (app: SignalKApp): SignalKPlugin {
     mqttClient: null,
     exportRules: [],
     activeSubscriptions: new Map<string, ExportRule[]>(),
-    lastSentValues: new Map<string, any>(),
+    lastSentValues: new Map<string, unknown>(),
     currentConfig: undefined,
     unsubscribes: [],
   };
@@ -170,9 +164,9 @@ export = function (app: SignalKApp): SignalKPlugin {
     // Create subscriptions for each context group
     contextGroups.forEach((rules, context) => {
       const subscription = {
-        context: context as any,
+        context: context as SignalKContext,
         subscribe: rules.map(rule => ({
-          path: rule.path as any,
+          path: rule.path as SignalKPath,
           policy: 'fixed' as const,
           period: rule.period || 1000,
           format: 'delta' as const,
@@ -184,7 +178,7 @@ export = function (app: SignalKApp): SignalKPlugin {
       );
 
       app.subscriptionmanager.subscribe(
-        subscription,
+        subscription as never,
         state.unsubscribes,
         (subscriptionError: unknown) => {
           app.debug(`Subscription error for ${context}: ${subscriptionError}`);
@@ -212,9 +206,14 @@ export = function (app: SignalKApp): SignalKPlugin {
     }
 
     delta.updates.forEach(update => {
-      if (!(update as any).values) return;
+      const typedUpdate = update as {
+        values?: SignalKValue[];
+        $source?: string;
+        source?: { label?: string };
+      };
+      if (!typedUpdate.values || !Array.isArray(typedUpdate.values)) return;
 
-      (update as any).values.forEach((valueUpdate: any) => {
+      typedUpdate.values.forEach((valueUpdate: SignalKValue) => {
         // Find matching export rule
         const rule = contextRules.find(r => {
           if (!r.enabled) return false;
@@ -239,7 +238,7 @@ export = function (app: SignalKApp): SignalKPlugin {
           const sourceMatch =
             !r.source ||
             !r.source.trim() ||
-            r.source === (update.$source || update.source?.label);
+            r.source === (typedUpdate.$source || typedUpdate.source?.label);
           if (!sourceMatch) return false;
 
           // Check MMSI exclusion list
@@ -259,7 +258,7 @@ export = function (app: SignalKApp): SignalKPlugin {
         });
 
         if (rule) {
-          publishToMQTT(delta, update, valueUpdate, rule);
+          publishToMQTT(delta, typedUpdate, valueUpdate, rule);
         }
       });
     });
@@ -268,7 +267,11 @@ export = function (app: SignalKApp): SignalKPlugin {
   // Publish data to MQTT
   function publishToMQTT(
     delta: SignalKDelta,
-    update: SignalKUpdate,
+    update: {
+      values?: SignalKValue[];
+      $source?: string;
+      source?: { label?: string };
+    },
     valueUpdate: SignalKValue,
     rule: ExportRule
   ): void {
@@ -308,8 +311,29 @@ export = function (app: SignalKApp): SignalKPlugin {
         payload =
           typeof value === 'object' ? JSON.stringify(value) : String(value);
       } else {
-        // Default: use original SignalK delta structure (preserves all source info)
-        payload = JSON.stringify(delta);
+        // Full format: check if custom source label is provided
+        if (rule.sourceLabel && rule.sourceLabel.trim()) {
+          // Construct a new SignalK delta with custom source label
+          const customDelta: SignalKDelta = {
+            context: context as SignalKContext,
+            updates: [
+              {
+                $source: rule.sourceLabel,
+                timestamp: new Date().toISOString() as SignalKTimestamp,
+                values: [
+                  {
+                    path: path as SignalKPath,
+                    value: value,
+                  },
+                ],
+              } as SignalKUpdate,
+            ],
+          };
+          payload = JSON.stringify(customDelta);
+        } else {
+          // Use original SignalK delta structure (preserves original source)
+          payload = JSON.stringify(delta);
+        }
       }
 
       // Publish to MQTT
@@ -336,7 +360,7 @@ export = function (app: SignalKApp): SignalKPlugin {
   function checkValueChange(
     context: string,
     path: string,
-    value: any
+    value: unknown
   ): ValueChangeResult {
     const valueKey = `${context}:${path}`;
     const lastValue = state.lastSentValues.get(valueKey);
@@ -500,7 +524,7 @@ export = function (app: SignalKApp): SignalKPlugin {
           }
 
           // Save configuration to persistent storage
-          app.savePluginOptions(plugin.config || {}, (err: any) => {
+          app.savePluginOptions(plugin.config || {}, (err: Error | null) => {
             if (err) {
               app.debug(`Error saving plugin configuration: ${err.message}`);
               return res.status(500).json({

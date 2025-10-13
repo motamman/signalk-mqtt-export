@@ -456,12 +456,18 @@
                     <label for="ruleSource">Source Filter (Optional):</label>
                     <input type="text" id="ruleSource" name="source" placeholder="e.g., maiana.GP, NighthawkM5, leave empty for all">
                 </div>
-                
+
+                <div class="form-group">
+                    <label for="ruleSourceLabel">Source Label for Export (Optional):</label>
+                    <input type="text" id="ruleSourceLabel" name="sourceLabel" placeholder="e.g., mqtt-export, remote-boat">
+                    <small style="color: #6c757d;">If provided, exports with custom $source instead of original source</small>
+                </div>
+
                 <div class="form-group">
                     <label for="rulePeriod">Update Period (ms):</label>
                     <input type="number" id="rulePeriod" name="period" value="1000" min="100" max="60000">
                 </div>
-                
+
                 <div class="form-group">
                     <label for="ruleQos">MQTT QoS:</label>
                     <select id="ruleQos" name="qos">
@@ -470,7 +476,7 @@
                         <option value="2">2 - Exactly once</option>
                     </select>
                 </div>
-                
+
                 <div class="form-group">
                     <label for="rulePayloadFormat">Payload Format:</label>
                     <select id="rulePayloadFormat" name="payloadFormat">
@@ -679,12 +685,13 @@
         function editRule(index) {
             editingRuleIndex = index;
             const rule = currentRules[index];
-            
+
             document.getElementById('modalTitle').textContent = 'Edit Export Rule';
             document.getElementById('ruleName').value = rule.name;
             document.getElementById('ruleContext').value = rule.context;
             document.getElementById('rulePath').value = rule.path;
             document.getElementById('ruleSource').value = rule.source || '';
+            document.getElementById('ruleSourceLabel').value = rule.sourceLabel || '';
             document.getElementById('rulePeriod').value = rule.period;
             document.getElementById('ruleQos').value = rule.qos;
             document.getElementById('rulePayloadFormat').value = rule.payloadFormat;
@@ -693,7 +700,7 @@
             document.getElementById('ruleEnabled').checked = rule.enabled;
             document.getElementById('ruleSendOnChange').checked = rule.sendOnChange !== false; // Default to true
             document.getElementById('ruleRetain').checked = rule.retain;
-            
+
             document.getElementById('ruleModal').style.display = 'block';
         }
 
@@ -742,6 +749,7 @@
                 context: formData.get('context'),
                 path: formData.get('path'),
                 source: formData.get('source'),
+                sourceLabel: formData.get('sourceLabel'),
                 period: parseInt(formData.get('period')),
                 qos: parseInt(formData.get('qos')),
                 payloadFormat: formData.get('payloadFormat'),
