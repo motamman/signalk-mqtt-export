@@ -1,6 +1,6 @@
 {
   "name": "signalk-mqtt-export",
-  "version": "0.5.0-beta.2",
+  "version": "0.5.0-beta.3",
   "description": "SignalK plugin to selectively export data to MQTT with webapp management interface",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -10,7 +10,6 @@
     "clean": "rm -rf dist",
     "prepublishOnly": "npm run build",
     "prepare": "npm run build",
-    "postinstall": "echo 'Building TypeScript...' && npm run build",
     "dev": "npm run build && npm run watch",
     "test": "echo \"Error: no test specified\" && exit 1",
     "lint": "eslint src/**/*.ts",
